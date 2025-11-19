@@ -48,11 +48,6 @@ def generate_report():
     relatorio.append("🎮 Relatório semanal da Steam")
     relatorio.append(f"Período: {inicio.strftime('%d/%m/%Y')} a {hoje.strftime('%d/%m/%Y')}\n")
 
-    # Info do perfil
-    relatorio.append(f"👤 Usuário: {player.get('personaname')}")
-    relatorio.append(f"🌐 Perfil: {player.get('profileurl')}")
-    relatorio.append(f"📅 Conta criada em: {datetime.datetime.fromtimestamp(player.get('timecreated',0)).strftime('%d/%m/%Y')}\n")
-
     # Jogos recentes
     relatorio.append("📌 Jogos jogados nas últimas 2 semanas:")
     if not recent:
@@ -92,3 +87,4 @@ if __name__ == "__main__":
         send_email(report)
     except Exception as e:
         print("Erro ao gerar ou enviar relatório:", e)
+
