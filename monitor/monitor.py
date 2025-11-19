@@ -4,19 +4,15 @@ from bs4 import BeautifulSoup
 import smtplib
 
 URL = "https://pje-consulta-publica.tjmg.jus.br/pje/ConsultaPublica/DetalheProcessoConsultaPublica/listView.seam?ca=ba079116e770156e1656d647dfd34a44018e461e9fa107a5"
-ULTIMO_ARQUIVO = "ultima.txt"
+ULTIMO_ARQUIVO = os.path.join(os.path.dirname(__file__), "ultima.txt")
 
 def pegar_movimentacoes():
-    html = requests.get(URL).text
+    html = requests.get(URL, timeout=30).text
     soup = BeautifulSoup(html, "html.parser")
-
-    # Localiza a div que contém as movimentações
     div_mov = soup.find("div", {"id": "j_id145:processoEventoPanel"})
     if not div_mov:
         return "Movimentações não encontradas."
-
-    # Extrai o texto da div
-    return div_mov.get_text(strip=True)
+    return div_mov.get_text(separator="\n", strip=True)
 
 def enviar_email(mensagem):
     servidor = smtplib.SMTP("smtp.gmail.com", 587)
@@ -25,19 +21,23 @@ def enviar_email(mensagem):
     servidor.sendmail(
         os.environ["EMAIL_USER"],
         os.environ["EMAIL_DEST"],
-        f"Subject: Nova movimentação\n\n{mensagem}"
+        f"Subject: ⚖️ Nova movimentação no processo TJMG\n\n{mensagem}"
     )
     servidor.quit()
 
-texto_atual = pegar_movimentacoes()
+def main():
+    texto_atual = pegar_movimentacoes()
 
-try:
-    with open(ULTIMO_ARQUIVO, "r") as f:
-        ultimo = f.read()
-except FileNotFoundError:
-    ultimo = ""
+    try:
+        with open(ULTIMO_ARQUIVO, "r", encoding="utf-8") as f:
+            ultimo = f.read()
+    except FileNotFoundError:
+        ultimo = ""
 
-if texto_atual != ultimo:
-    enviar_email("Houve nova movimentação!\n\n" + texto_atual)
-    with open(ULTIMO_ARQUIVO, "w") as f:
-        f.write(texto_atual)
+    if texto_atual and texto_atual != ultimo:
+        enviar_email("Houve nova movimentação no processo!\n\n" + texto_atual)
+        with open(ULTIMO_ARQUIVO, "w", encoding="utf-8") as f:
+            f.write(texto_atual)
+
+if __name__ == "__main__":
+    main()
