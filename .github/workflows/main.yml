@@ -1,0 +1,30 @@
+name: Monitorar TJMG
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # roda a cada 30 minutos
+  workflow_dispatch:         # permite rodar manualmente
+
+jobs:
+  check-site:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Instalar dependências
+        run: |
+          pip install -r monitor/requirements.txt
+
+      - name: Rodar monitor
+        env:
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+          EMAIL_DEST: ${{ secrets.EMAIL_DEST }}
+        run: |
+          python monitor/monitor.py
