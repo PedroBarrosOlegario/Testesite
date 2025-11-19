@@ -30,4 +30,4 @@ jobs:
           EMAIL_DEST: ${{ secrets.EMAIL_DEST }}
           STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
           STEAM_ID64: ${{ secrets.STEAM_ID64 }}
-        run: python "Testesite/steam_report.py"
+        run: python "Testesite/Steam report/steam_report.py"
