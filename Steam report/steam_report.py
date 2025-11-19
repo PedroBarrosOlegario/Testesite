@@ -1,0 +1,94 @@
+import os
+import requests
+import datetime
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+# 🔐 Secrets do GitHub (injetados como variáveis de ambiente)
+STEAM_API_KEY = os.getenv("STEAM_API_KEY")
+STEAM_ID64 = os.getenv("STEAM_ID64")
+EMAIL_USER = os.getenv("EMAIL_USER")
+EMAIL_PASS = os.getenv("EMAIL_PASS")
+EMAIL_DEST = os.getenv("EMAIL_DEST")
+
+# Endpoints da Steam API
+API_RECENT = "https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v1/"
+API_OWNED = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/"
+API_PLAYER = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/"
+
+def get_recent_games():
+    params = {"key": STEAM_API_KEY, "steamid": STEAM_ID64}
+    r = requests.get(API_RECENT, params=params)
+    r.raise_for_status()
+    return r.json().get("response", {}).get("games", [])
+
+def get_owned_games():
+    params = {"key": STEAM_API_KEY, "steamid": STEAM_ID64, "include_appinfo": True}
+    r = requests.get(API_OWNED, params=params)
+    r.raise_for_status()
+    return r.json().get("response", {}).get("games", [])
+
+def get_player_info():
+    params = {"key": STEAM_API_KEY, "steamids": STEAM_ID64}
+    r = requests.get(API_PLAYER, params=params)
+    r.raise_for_status()
+    players = r.json().get("response", {}).get("players", [])
+    return players[0] if players else {}
+
+def generate_report():
+    hoje = datetime.date.today()
+    inicio = hoje - datetime.timedelta(days=7)
+
+    player = get_player_info()
+    recent = get_recent_games()
+    owned = get_owned_games()
+
+    relatorio = []
+    relatorio.append("🎮 Relatório semanal da Steam")
+    relatorio.append(f"Período: {inicio.strftime('%d/%m/%Y')} a {hoje.strftime('%d/%m/%Y')}\n")
+
+    # Info do perfil
+    relatorio.append(f"👤 Usuário: {player.get('personaname')}")
+    relatorio.append(f"🌐 Perfil: {player.get('profileurl')}")
+    relatorio.append(f"📅 Conta criada em: {datetime.datetime.fromtimestamp(player.get('timecreated',0)).strftime('%d/%m/%Y')}\n")
+
+    # Jogos recentes
+    relatorio.append("📌 Jogos jogados nas últimas 2 semanas:")
+    if not recent:
+        relatorio.append("Nenhum jogo jogado recentemente.")
+    else:
+        for g in recent:
+            nome = g.get("name", "Desconhecido")
+            minutos = g.get("playtime_2weeks", 0)
+            horas = minutos / 60
+            total_horas = g.get("playtime_forever", 0) / 60
+            relatorio.append(f"- {nome}: {horas:.1f}h nas últimas 2 semanas | {total_horas:.1f}h total")
+
+    # Estatísticas gerais
+    relatorio.append("\n📊 Estatísticas gerais da conta:")
+    relatorio.append(f"Total de jogos na biblioteca: {len(owned)}")
+    total_horas = sum(g.get("playtime_forever", 0) for g in owned) / 60
+    relatorio.append(f"Tempo total jogado: {total_horas:.1f} horas")
+
+    return "\n".join(relatorio)
+
+def send_email(report):
+    msg = MIMEMultipart()
+    msg["From"] = EMAIL_USER
+    msg["To"] = EMAIL_DEST
+    msg["Subject"] = "Relatório semanal da Steam"
+
+    msg.attach(MIMEText(report, "plain"))
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(EMAIL_USER, EMAIL_PASS)
+        server.send_message(msg)
+
+if __name__ == "__main__":
+    try:
+        report = generate_report()
+        print(report)
+        send_email(report)
+    except Exception as e:
+        print("Erro ao gerar ou enviar relatório:", e)
