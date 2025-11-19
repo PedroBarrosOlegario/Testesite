@@ -5,12 +5,17 @@ on:
     - cron: "*/30 * * * *"   # roda a cada 30 minutos
   workflow_dispatch:         # permite rodar manualmente
 
+permissions:
+  contents: write            # permite commitar e dar push
+
 jobs:
   check-site:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # necessário para conseguir dar push
 
       - name: Configurar Python
         uses: actions/setup-python@v5
@@ -18,13 +23,27 @@ jobs:
           python-version: "3.10"
 
       - name: Instalar dependências
-        run: |
-          pip install -r monitor/requirements.txt
+        run: pip install -r monitor/requirements.txt
 
       - name: Rodar monitor
         env:
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
           EMAIL_DEST: ${{ secrets.EMAIL_DEST }}
+        run: python monitor/monitor.py
+
+      - name: Commit do arquivo de estado (monitor/ultima.txt)
         run: |
-          python monitor/monitor.py
+          # Configura autor do commit
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Garante estar atualizado com o remoto
+          git pull --rebase
+
+          # Adiciona e commita se houver mudança
+          git add monitor/ultima.txt
+          git diff --cached --quiet || git commit -m "Atualiza ultima.txt"
+
+          # Dá push (se não houver nada para commitar, não dá erro)
+          git push || echo "Sem alterações para enviar"
