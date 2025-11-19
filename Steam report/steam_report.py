@@ -8,7 +8,7 @@ from email.mime.multipart import MIMEMultipart
 # 🔐 Secrets do GitHub (injetados como variáveis de ambiente)
 STEAM_API_KEY = os.getenv("STEAM_API_KEY")
 STEAM_ID64 = os.getenv("STEAM_ID64")
-EMAIL_USER = os.getenv("EMAIL_USER")   # seu e-mail Outlook
+EMAIL_USER = os.getenv("EMAIL_USER")   # seu e-mail
 EMAIL_PASS = os.getenv("EMAIL_PASS")   # senha ou senha de app
 EMAIL_DEST = os.getenv("EMAIL_DEST")   # destinatário
 
@@ -36,70 +36,55 @@ def get_player_info():
     players = r.json().get("response", {}).get("players", [])
     return players[0] if players else {}
 
-def generate_report_html():
+def generate_report():
     hoje = datetime.date.today()
     inicio = hoje - datetime.timedelta(days=7)
 
     player = get_player_info()
     recent = get_recent_games()
     owned = get_owned_games()
-    owned_dict = {g["appid"]: g for g in owned}
 
-    html = []
-    html.append("<h2>🎮 Relatório semanal da Steam</h2>")
-    html.append(f"<p>Período: {inicio.strftime('%d/%m/%Y')} a {hoje.strftime('%d/%m/%Y')}</p>")
+    relatorio = []
+    relatorio.append("🎮 Relatório semanal da Steam")
+    relatorio.append(f"Período: {inicio.strftime('%d/%m/%Y')} a {hoje.strftime('%d/%m/%Y')}\n")
 
     # Info do perfil
-    html.append("<h3>👤 Informações do perfil:</h3>")
-    html.append(f"<p>Usuário: {player.get('personaname')}<br>")
-    html.append(f"Perfil: <a href='{player.get('profileurl')}'>{player.get('profileurl')}</a><br>")
+    relatorio.append("👤 Informações do perfil:")
+    relatorio.append(f"Usuário: {player.get('personaname')}")
+    relatorio.append(f"Perfil: {player.get('profileurl')}")
     if player.get("timecreated"):
-        html.append(f"Conta criada em: {datetime.datetime.fromtimestamp(player['timecreated']).strftime('%d/%m/%Y')}</p>")
+        relatorio.append(f"Conta criada em: {datetime.datetime.fromtimestamp(player['timecreated']).strftime('%d/%m/%Y')}\n")
 
     # Jogos recentes
-    html.append("<h3>📌 Jogos jogados nas últimas 2 semanas:</h3>")
+    relatorio.append("📌 Jogos jogados nas últimas 2 semanas:")
     if not recent:
-        html.append("<p>Nenhum jogo jogado recentemente.</p>")
+        relatorio.append("Nenhum jogo jogado recentemente.")
     else:
-        html.append("<ul>")
         for g in recent:
             nome = g.get("name", "Desconhecido")
             minutos = g.get("playtime_2weeks", 0)
             horas = minutos / 60
             total_horas = g.get("playtime_forever", 0) / 60
-
-            appid = g.get("appid")
-            icon_url = ""
-            if appid in owned_dict and owned_dict[appid].get("img_icon_url"):
-                icon_hash = owned_dict[appid]["img_icon_url"]
-                icon_url = f"https://media.steampowered.com/steamcommunity/public/images/apps/{appid}/{icon_hash}.jpg"
-
-            if icon_url:
-                html.append(
-                    f"<li><img src='{icon_url}' width='32' height='32' style='vertical-align:middle;margin-right:8px;'>"
-                    f"{nome}: {horas:.1f}h nas últimas 2 semanas | {total_horas:.1f}h total</li>"
-                )
-            else:
-                html.append(f"<li>{nome}: {horas:.1f}h nas últimas 2 semanas | {total_horas:.1f}h total</li>")
-        html.append("</ul>")
+            relatorio.append(f"- {nome}: {horas:.1f}h nas últimas 2 semanas | {total_horas:.1f}h total")
 
     # Estatísticas gerais
-    html.append("<h3>📊 Estatísticas gerais da conta:</h3>")
-    html.append(f"<p>Total de jogos na biblioteca: {len(owned)}<br>")
+    relatorio.append("\n📊 Estatísticas gerais da conta:")
+    relatorio.append(f"Total de jogos na biblioteca: {len(owned)}")
     total_horas = sum(g.get("playtime_forever", 0) for g in owned) / 60
-    html.append(f"Tempo total jogado: {total_horas:.1f} horas</p>")
+    relatorio.append(f"Tempo total jogado: {total_horas:.1f} horas")
 
-    return "".join(html)
+    return "\n".join(relatorio)
 
-def send_email(report_html):
-    msg = MIMEMultipart("alternative")
+def send_email(report):
+    msg = MIMEMultipart()
     msg["From"] = EMAIL_USER
     msg["To"] = EMAIL_DEST
     msg["Subject"] = "Relatório semanal da Steam"
 
-    msg.attach(MIMEText(report_html, "html"))
+    # Corpo em texto puro
+    msg.attach(MIMEText(report, "plain"))
 
-    # Outlook usa TLS na porta 587
+    # Outlook/Office365 usa TLS na porta 587
     with smtplib.SMTP("smtp.office365.com", 587) as server:
         server.ehlo()
         server.starttls()
@@ -108,9 +93,9 @@ def send_email(report_html):
 
 if __name__ == "__main__":
     try:
-        report_html = generate_report_html()
+        report = generate_report()
         print("Relatório gerado com sucesso.")
-        send_email(report_html)
-        print("E-mail enviado com sucesso via Outlook.")
+        send_email(report)
+        print("E-mail enviado com sucesso.")
     except Exception as e:
         print("Erro ao gerar ou enviar relatório:", e)
