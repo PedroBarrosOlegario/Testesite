@@ -44,6 +44,9 @@ def generate_report():
     recent = get_recent_games()
     owned = get_owned_games()
 
+    # Criar dicionário appid -> dados do jogo (com ícone)
+    owned_dict = {g["appid"]: g for g in owned}
+
     relatorio = []
     relatorio.append("🎮 Relatório semanal da Steam")
     relatorio.append(f"Período: {inicio.strftime('%d/%m/%Y')} a {hoje.strftime('%d/%m/%Y')}\n")
@@ -58,7 +61,19 @@ def generate_report():
             minutos = g.get("playtime_2weeks", 0)
             horas = minutos / 60
             total_horas = g.get("playtime_forever", 0) / 60
-            relatorio.append(f"- {nome}: {horas:.1f}h nas últimas 2 semanas | {total_horas:.1f}h total")
+
+            # Pegar ícone pequeno
+            appid = g.get("appid")
+            icon_url = ""
+            if appid in owned_dict and owned_dict[appid].get("img_icon_url"):
+                icon_hash = owned_dict[appid]["img_icon_url"]
+                icon_url = f"https://media.steampowered.com/steamcommunity/public/images/apps/{appid}/{icon_hash}.jpg"
+
+            # Montar linha com ícone + nome + infos
+            if icon_url:
+                relatorio.append(f"- {nome} ({icon_url}) → {horas:.1f}h nas últimas 2 semanas | {total_horas:.1f}h total")
+            else:
+                relatorio.append(f"- {nome}: {horas:.1f}h nas últimas 2 semanas | {total_horas:.1f}h total")
 
     # Estatísticas gerais
     relatorio.append("\n📊 Estatísticas gerais da conta:")
@@ -74,6 +89,7 @@ def send_email(report):
     msg["To"] = EMAIL_DEST
     msg["Subject"] = "Relatório semanal da Steam"
 
+    # Se quiser HTML com imagens embutidas, troque "plain" por "html"
     msg.attach(MIMEText(report, "plain"))
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
@@ -87,4 +103,3 @@ if __name__ == "__main__":
         send_email(report)
     except Exception as e:
         print("Erro ao gerar ou enviar relatório:", e)
-
