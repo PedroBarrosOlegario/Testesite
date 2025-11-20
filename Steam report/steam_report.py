@@ -8,9 +8,9 @@ from email.mime.multipart import MIMEMultipart
 # 🔐 Secrets do GitHub (injetados como variáveis de ambiente)
 STEAM_API_KEY = os.getenv("STEAM_API_KEY")
 STEAM_ID64 = os.getenv("STEAM_ID64")
-EMAIL_USER = os.getenv("EMAIL_USER")   # seu e-mail
-EMAIL_PASS = os.getenv("EMAIL_PASS")   # senha ou senha de app
-EMAIL_DEST = os.getenv("EMAIL_DEST")   # destinatário
+EMAIL_USER = os.getenv("EMAIL_USER")
+EMAIL_PASS = os.getenv("EMAIL_PASS")
+EMAIL_DEST = os.getenv("EMAIL_DEST")
 
 # Endpoints da Steam API
 API_RECENT = "https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v1/"
@@ -48,13 +48,6 @@ def generate_report():
     relatorio.append("🎮 Relatório semanal da Steam")
     relatorio.append(f"Período: {inicio.strftime('%d/%m/%Y')} a {hoje.strftime('%d/%m/%Y')}\n")
 
-    # Info do perfil
-    relatorio.append("👤 Informações do perfil:")
-    relatorio.append(f"Usuário: {player.get('personaname')}")
-    relatorio.append(f"Perfil: {player.get('profileurl')}")
-    if player.get("timecreated"):
-        relatorio.append(f"Conta criada em: {datetime.datetime.fromtimestamp(player['timecreated']).strftime('%d/%m/%Y')}\n")
-
     # Jogos recentes
     relatorio.append("📌 Jogos jogados nas últimas 2 semanas:")
     if not recent:
@@ -81,20 +74,17 @@ def send_email(report):
     msg["To"] = EMAIL_DEST
     msg["Subject"] = "Relatório semanal da Steam"
 
-    # Corpo em texto puro
     msg.attach(MIMEText(report, "plain"))
 
-    # Outlook/Office365 usa TLS na porta 587
-    with smtplib.SMTP("smtp.office365.com", 587) as server:
-        server.ehlo()
-        server.starttls()
+    # Gmail usa SSL na porta 465
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(EMAIL_USER, EMAIL_PASS)
         server.send_message(msg)
 
 if __name__ == "__main__":
     try:
         report = generate_report()
-        print("Relatório gerado com sucesso.")
+        print(report)
         send_email(report)
         print("E-mail enviado com sucesso.")
     except Exception as e:
