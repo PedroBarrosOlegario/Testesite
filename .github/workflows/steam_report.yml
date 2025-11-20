@@ -1,91 +1,33 @@
-import os
-import requests
-import datetime
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+name: Relatório Steam
 
-# 🔐 Secrets do GitHub (injetados como variáveis de ambiente)
-STEAM_API_KEY = os.getenv("STEAM_API_KEY")
-STEAM_ID64 = os.getenv("STEAM_ID64")
-EMAIL_USER = os.getenv("EMAIL_USER")
-EMAIL_PASS = os.getenv("EMAIL_PASS")
-EMAIL_DEST = os.getenv("EMAIL_DEST")
+on:
+  schedule:
+    - cron: "30 12 * * MON"   # toda segunda-feira às 12:30 UTC (09:30 BRT)
+  workflow_dispatch:
 
-# Endpoints da Steam API
-API_RECENT = "https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v1/"
-API_OWNED = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/"
-API_PLAYER = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/"
+permissions:
+  contents: read
 
-def get_recent_games():
-    params = {"key": STEAM_API_KEY, "steamid": STEAM_ID64}
-    r = requests.get(API_RECENT, params=params)
-    r.raise_for_status()
-    return r.json().get("response", {}).get("games", [])
+jobs:
+  steam-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
 
-def get_owned_games():
-    params = {"key": STEAM_API_KEY, "steamid": STEAM_ID64, "include_appinfo": True}
-    r = requests.get(API_OWNED, params=params)
-    r.raise_for_status()
-    return r.json().get("response", {}).get("games", [])
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
 
-def get_player_info():
-    params = {"key": STEAM_API_KEY, "steamids": STEAM_ID64}
-    r = requests.get(API_PLAYER, params=params)
-    r.raise_for_status()
-    players = r.json().get("response", {}).get("players", [])
-    return players[0] if players else {}
+      - name: Instalar dependências
+        run: pip install requests
 
-def generate_report():
-    hoje = datetime.date.today()
-    inicio = hoje - datetime.timedelta(days=7)
-
-    player = get_player_info()
-    recent = get_recent_games()
-    owned = get_owned_games()
-
-    relatorio = []
-    relatorio.append("🎮 Relatório semanal da Steam")
-    relatorio.append(f"Período: {inicio.strftime('%d/%m/%Y')} a {hoje.strftime('%d/%m/%Y')}\n")
-
-    # Jogos recentes
-    relatorio.append("📌 Jogos jogados nas últimas 2 semanas:")
-    if not recent:
-        relatorio.append("Nenhum jogo jogado recentemente.")
-    else:
-        for g in recent:
-            nome = g.get("name", "Desconhecido")
-            minutos = g.get("playtime_2weeks", 0)
-            horas = minutos / 60
-            total_horas = g.get("playtime_forever", 0) / 60
-            relatorio.append(f"- {nome}: {horas:.1f}h nas últimas 2 semanas | {total_horas:.1f}h total")
-
-    # Estatísticas gerais
-    relatorio.append("\n📊 Estatísticas gerais da conta:")
-    relatorio.append(f"Total de jogos na biblioteca: {len(owned)}")
-    total_horas = sum(g.get("playtime_forever", 0) for g in owned) / 60
-    relatorio.append(f"Tempo total jogado: {total_horas:.1f} horas")
-
-    return "\n".join(relatorio)
-
-def send_email(report):
-    msg = MIMEMultipart()
-    msg["From"] = EMAIL_USER
-    msg["To"] = EMAIL_DEST
-    msg["Subject"] = "Relatório semanal da Steam"
-
-    msg.attach(MIMEText(report, "plain"))
-
-    # Gmail usa SSL na porta 465
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-        server.login(EMAIL_USER, EMAIL_PASS)
-        server.send_message(msg)
-
-if __name__ == "__main__":
-    try:
-        report = generate_report()
-        print(report)
-        send_email(report)
-        print("E-mail enviado com sucesso.")
-    except Exception as e:
-        print("Erro ao gerar ou enviar relatório:", e)
+      - name: Rodar relatório Steam
+        env:
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+          EMAIL_DEST: ${{ secrets.EMAIL_DEST }}
+          STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
+          STEAM_ID64: ${{ secrets.STEAM_ID64 }}
+        run: python "Steam report/steam_report.py"
