@@ -5,7 +5,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-URL = "https://pje-consulta-publica.tjmg.jus.br/pje/ConsultaPublica/DetalheProcessoConsultaPublica/listView.seam?ca=ba079116e770156e1656d647dfd34a44018e461e9fa107a5"
+URL = "https://pje-consulta-publica.tjmg.jus.br/pje/ConsultaPublica/DetalheProcessoConsultaPublica/listView.seam?ca=ba079116e770156ed0f39cfe7972e4d3018e461e9fa107a5"
 ULTIMO_ARQUIVO = os.path.join(os.path.dirname(__file__), "ultima.txt")
 
 def pegar_movimentacoes():
@@ -52,3 +52,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
