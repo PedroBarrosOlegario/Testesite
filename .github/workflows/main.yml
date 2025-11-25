@@ -2,11 +2,11 @@ name: Monitorar TJMG
 
 on:
   schedule:
-    - cron: "*/30 * * * *"   # roda a cada 30 minutos em UTC
-  workflow_dispatch:         # permite rodar manualmente pelo botão "Run workflow"
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
 
 permissions:
-  contents: write            # permite commitar e dar push
+  contents: write
 
 jobs:
   check-site:
@@ -15,7 +15,7 @@ jobs:
       - name: Checkout código
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0     # necessário para dar push
+          fetch-depth: 0
 
       - name: Configurar Python
         uses: actions/setup-python@v5
@@ -25,6 +25,9 @@ jobs:
       - name: Instalar dependências
         run: pip install -r monitor/requirements.txt
 
+      - name: Instalar Playwright
+        run: playwright install --with-deps chromium
+
       - name: Rodar monitor
         env:
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
@@ -32,14 +35,11 @@ jobs:
           EMAIL_DEST: ${{ secrets.EMAIL_DEST }}
         run: python monitor/monitor.py
 
-      - name: Commit do arquivo de estado (monitor/ultima.txt)
+      - name: Commit do arquivo de estado
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Adiciona e commita se houver mudança
           git add monitor/ultima.txt
           git diff --cached --quiet || git commit -m "Atualiza ultima.txt"
-
-          # Dá push (se não houver nada para commitar, não dá erro)
-          git push || echo "Sem alterações para enviar"
+          git push || echo "Sem alterações"
