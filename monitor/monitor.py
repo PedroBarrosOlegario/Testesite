@@ -1,85 +1,82 @@
 import os
-from playwright.sync_api import sync_playwright
+import requests
+from bs4 import BeautifulSoup
 
-URL = "https://pje-consulta-publica.tjmg.jus.br/"
+URL = "https://www4.tjmg.jus.br/pje/ConsultaPublica/listView.seam"  # página de pesquisa
 NUM_PROCESSO = "5042180-26.2024.8.13.0079"
-ULTIMO_ARQUIVO = os.path.join(os.path.dirname(__file__), "ultima.txt")
+CAMINHO_ARQUIVO = "monitor/ultima.txt"
 
 
-def pegar_movimentacao():
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
+def extrair_ultima_movimentacao(html):
+    """
+    Lê o HTML da página de resultados e retorna SOMENTE
+    o texto da coluna 'Última movimentação'.
+    """
 
-        print("➡ Acessando página...")
-        page.goto(URL, timeout=60000)
+    soup = BeautifulSoup(html, "lxml-xml")  # XHTML precisa do parser XML
 
-        # Campo do número do processo
-        input_selector = "#fPP\\:numProcesso-inputNumeroProcessoDecoration\\:numProcesso-inputNumeroProcesso"
-        page.wait_for_selector(input_selector)
+    # Seleciona a tabela principal
+    tabela = soup.find("table", {"id": "fPP:processosTable"})
+    if not tabela:
+        return None
 
-        print("➡ Preenchendo número do processo...")
-        page.fill(input_selector, NUM_PROCESSO)
+    # tbody > tr > último td
+    linha = tabela.find("tbody").find("tr")
+    if not linha:
+        return None
 
-        print("➡ Clicando em pesquisar...")
-        page.click("#fPP\\:searchProcessos")
+    celulas = linha.find_all("td")
+    if not celulas or len(celulas) < 3:
+        return None
 
-        # Espera a tabela de resultados
-        print("➡ Aguardando resultados...")
-        page.wait_for_selector("#fPP\\:processosTable", timeout=60000)
+    ultima_td = celulas[-1]
+    texto = ultima_td.get_text(strip=True)
 
-        # Captura apenas a coluna “Última movimentação”
-        print("➡ Extraindo última movimentação...")
-        td_mov = page.query_selector("td[id$='j_id264']")
-
-        if not td_mov:
-            browser.close()
-            return "Movimentação não encontrada."
-
-        movimento = td_mov.inner_text().strip()
-
-        browser.close()
-        return movimento
+    return texto if texto else None
 
 
-def enviar_email(mensagem):
-    from smtplib import SMTP
-    from email.mime.text import MIMEText
-    from email.mime.multipart import MIMEMultipart
+def pesquisar_processo():
+    """
+    Envia o número do processo para a pesquisa e retorna o HTML da tabela.
+    """
+    session = requests.Session()
 
-    msg = MIMEMultipart()
-    msg["From"] = os.environ["EMAIL_USER"]
-    msg["To"] = os.environ["EMAIL_DEST"]
-    msg["Subject"] = "⚖️ Nova movimentação no processo TJMG"
+    # Primeiro GET para obter a página (necessário para pegar cookies)
+    session.get(URL)
 
-    msg.attach(MIMEText(mensagem, "plain", "utf-8"))
+    # Parâmetros da requisição POST de pesquisa
+    data = {
+        "fPP:numProcesso-inputNumeroProcessoDecoration:numProcesso-inputNumeroProcesso": NUM_PROCESSO,
+        "fPP:j_id212": "Pesquisar"  # botão de pesquisar
+    }
 
-    servidor = SMTP("smtp.gmail.com", 587)
-    servidor.starttls()
-    servidor.login(os.environ["EMAIL_USER"], os.environ["EMAIL_PASS"])
-    servidor.sendmail(os.environ["EMAIL_USER"], os.environ["EMAIL_DEST"], msg.as_string())
-    servidor.quit()
+    # Faz o POST com o número do processo
+    response = session.post(URL, data=data)
+
+    return response.text
+
+
+def salvar_movimentacao(mov):
+    """
+    Salva a movimentação em ultima.txt
+    """
+    with open(CAMINHO_ARQUIVO, "w", encoding="utf-8") as f:
+        f.write(mov)
 
 
 def main():
-    texto_atual = pegar_movimentacao()
+    print("🔍 Pesquisando processo no TJMG...")
 
-    # Lê o último estado salvo
-    try:
-        with open(ULTIMO_ARQUIVO, "r", encoding="utf-8") as f:
-            ultimo = f.read().strip()
-    except FileNotFoundError:
-        ultimo = ""
+    html = pesquisar_processo()
+    mov = extrair_ultima_movimentacao(html)
 
-    # Se mudou, envia e-mail e salva
-    if texto_atual and texto_atual != ultimo:
-        print("✔ Mudança detectada! Enviando e-mail...")
-        enviar_email("Houve nova movimentação no processo:\n\n" + texto_atual)
+    if not mov:
+        mov = "Movimentação não encontrada."
 
-        with open(ULTIMO_ARQUIVO, "w", encoding="utf-8") as f:
-            f.write(texto_atual)
-    else:
-        print("Nenhuma mudança detectada.")
+    salvar_movimentacao(mov)
+
+    print("✅ Última movimentação salva em ultima.txt:")
+    print(mov)
 
 
 if __name__ == "__main__":
