@@ -1,8 +1,5 @@
 import os
 from playwright.sync_api import sync_playwright
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 URL = "https://pje-consulta-publica.tjmg.jus.br/"
 NUM_PROCESSO = "5042180-26.2024.8.13.0079"
@@ -14,35 +11,50 @@ def pegar_movimentacao():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
 
-        # Acessar
+        print("➡ Acessando página...")
         page.goto(URL, timeout=60000)
 
-        # Preencher número do processo
-        selector = "#fPP\\:numProcesso-inputNumeroProcessoDecoration\\:numProcesso-inputNumeroProcesso"
-        page.wait_for_selector(selector)
-        page.fill(selector, NUM_PROCESSO)
+        # Campo do número do processo
+        input_selector = "#fPP\\:numProcesso-inputNumeroProcessoDecoration\\:numProcesso-inputNumeroProcesso"
+        page.wait_for_selector(input_selector)
 
-        # clicar pesquisar
+        print("➡ Preenchendo número do processo...")
+        page.fill(input_selector, NUM_PROCESSO)
+
+        print("➡ Clicando em pesquisar...")
         page.click("#fPP\\:searchProcessos")
 
-        # aguarda resultados
-        page.wait_for_selector("td.rich-table-cell", timeout=60000)
+        # Espera a tabela de resultados
+        print("➡ Aguardando resultados...")
+        page.wait_for_selector("#fPP\\:processosTable", timeout=60000)
 
-        # pega primeira célula que contém a última movimentação
-        movimento = page.query_selector("td.rich-table-cell").inner_text()
+        # Captura apenas a coluna “Última movimentação”
+        print("➡ Extraindo última movimentação...")
+        td_mov = page.query_selector("td[id$='j_id264']")
+
+        if not td_mov:
+            browser.close()
+            return "Movimentação não encontrada."
+
+        movimento = td_mov.inner_text().strip()
 
         browser.close()
-        return movimento.strip()
+        return movimento
 
 
-def enviar_email(mensagem: str):
+def enviar_email(mensagem):
+    from smtplib import SMTP
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
     msg = MIMEMultipart()
     msg["From"] = os.environ["EMAIL_USER"]
     msg["To"] = os.environ["EMAIL_DEST"]
     msg["Subject"] = "⚖️ Nova movimentação no processo TJMG"
+
     msg.attach(MIMEText(mensagem, "plain", "utf-8"))
 
-    servidor = smtplib.SMTP("smtp.gmail.com", 587)
+    servidor = SMTP("smtp.gmail.com", 587)
     servidor.starttls()
     servidor.login(os.environ["EMAIL_USER"], os.environ["EMAIL_PASS"])
     servidor.sendmail(os.environ["EMAIL_USER"], os.environ["EMAIL_DEST"], msg.as_string())
@@ -50,20 +62,24 @@ def enviar_email(mensagem: str):
 
 
 def main():
-    atual = pegar_movimentacao()
+    texto_atual = pegar_movimentacao()
 
+    # Lê o último estado salvo
     try:
         with open(ULTIMO_ARQUIVO, "r", encoding="utf-8") as f:
-            ultimo = f.read()
+            ultimo = f.read().strip()
     except FileNotFoundError:
         ultimo = ""
 
-    if atual != ultimo:
-        print("Nova movimentação detectada!")
-        enviar_email("Houve nova movimentação no processo:\n\n" + atual)
+    # Se mudou, envia e-mail e salva
+    if texto_atual and texto_atual != ultimo:
+        print("✔ Mudança detectada! Enviando e-mail...")
+        enviar_email("Houve nova movimentação no processo:\n\n" + texto_atual)
 
         with open(ULTIMO_ARQUIVO, "w", encoding="utf-8") as f:
-            f.write(atual)
+            f.write(texto_atual)
+    else:
+        print("Nenhuma mudança detectada.")
 
 
 if __name__ == "__main__":
