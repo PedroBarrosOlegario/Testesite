@@ -31,60 +31,59 @@ def enviar_email(mensagem):
 def buscar_ultima_movimentacao():
     session = requests.Session()
 
-    # 1) Primeiro GET para pegar ViewState
+    # 1) Primeiro GET → pega ViewState
     r1 = session.get(URL_LISTVIEW, timeout=30)
     soup1 = BeautifulSoup(r1.text, "html.parser")
 
-    viewstate = soup1.find("input", {"id": "javax.faces.ViewState"})
-    if not viewstate:
+    viewstate_tag = soup1.find("input", {"id": "javax.faces.ViewState"})
+    if not viewstate_tag:
         return "VIEWSTATE não encontrado"
 
-    viewstate = viewstate.get("value")
+    viewstate = viewstate_tag.get("value")
 
-    # 2) Montar POST AJAX idêntico ao do botão
+    # 2) POST AJAX simulando o botão Pesquisar
     data = {
         "javax.faces.ViewState": viewstate,
         "fPP": "fPP",
-
-        "fPP:numProcesso-inputNumeroProcessoDecoration:numProcesso-inputNumeroProcesso": PROCESSO,
-
-        # Parâmetro enviado pelo botão
-        "fPP:searchProcessos": "fPP:searchProcessos",
-
-        # Parâmetros RichFaces obrigatórios
         "AJAXREQUEST": "fPP",
         "ajaxSingle": "fPP:searchProcessos",
+        "fPP:searchProcessos": "fPP:searchProcessos",
+        "fPP:numProcesso-inputNumeroProcessoDecoration:numProcesso-inputNumeroProcesso": PROCESSO,
     }
 
     headers = {
         "Faces-Request": "partial/ajax",
         "Content-Type": "application/x-www-form-urlencoded",
-        "Referer": URL_LISTVIEW
+        "Referer": URL_LISTVIEW,
+        "User-Agent": "Mozilla/5.0",
     }
 
     r2 = session.post(URL_LISTVIEW, data=data, headers=headers, timeout=30)
 
-    # 3) A resposta vem em XML (partial-response)
-    soup2 = BeautifulSoup(r2.text, "xml")
+    # 3) Interpretar partial-response usando html.parser
+    soup2 = BeautifulSoup(r2.text, "html.parser")
 
+    # O conteúdo vem dentro de <update id="fPP:processosGridPanel">
     updates = soup2.find_all("update")
 
     html_fragment = ""
-    for u in updates:
-        if "id" in u.attrs and "processosGridPanel" in u["id"]:
-            html_fragment = u.text
+    for upd in updates:
+        if upd.get("id") and "processosGridPanel" in upd.get("id"):
+            html_fragment = upd.text
             break
 
     if not html_fragment:
-        return "Tabela não encontrada (provavelmente o POST não simulou corretamente)."
+        return "Tabela não retornada pelo servidor."
 
+    # 4) Parsear o fragmento HTML
     soup3 = BeautifulSoup(html_fragment, "html.parser")
 
+    # A célula da última movimentação termina com :j_id264
     td = soup3.find("td", id=lambda x: x and x.endswith(":j_id264"))
     if not td:
         return "Movimentação não encontrada."
 
-    return td.text.strip()
+    return td.get_text(strip=True)
 
 
 def main():
