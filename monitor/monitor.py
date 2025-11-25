@@ -2,26 +2,27 @@ import os
 import requests
 from bs4 import BeautifulSoup
 
-URL = "https://www4.tjmg.jus.br/pje/ConsultaPublica/listView.seam"  # página de pesquisa
+URL = "https://www4.tjmg.jus.br/pje/ConsultaPublica/listView.seam"
 NUM_PROCESSO = "5042180-26.2024.8.13.0079"
 CAMINHO_ARQUIVO = "monitor/ultima.txt"
 
 
 def extrair_ultima_movimentacao(html):
     """
-    Lê o HTML da página de resultados e retorna SOMENTE
-    o texto da coluna 'Última movimentação'.
+    Lê o HTML de resultados e retorna a coluna da última movimentação.
     """
 
-    soup = BeautifulSoup(html, "lxml-xml")  # XHTML precisa do parser XML
+    soup = BeautifulSoup(html, "xml")  # parser compatível com GitHub Actions
 
-    # Seleciona a tabela principal
     tabela = soup.find("table", {"id": "fPP:processosTable"})
     if not tabela:
         return None
 
-    # tbody > tr > último td
-    linha = tabela.find("tbody").find("tr")
+    tbody = tabela.find("tbody")
+    if not tbody:
+        return None
+
+    linha = tbody.find("tr")
     if not linha:
         return None
 
@@ -37,29 +38,26 @@ def extrair_ultima_movimentacao(html):
 
 def pesquisar_processo():
     """
-    Envia o número do processo para a pesquisa e retorna o HTML da tabela.
+    Envia o número do processo ao TJMG e retorna o HTML.
     """
+
     session = requests.Session()
 
-    # Primeiro GET para obter a página (necessário para pegar cookies)
+    # GET inicial apenas para cookies
     session.get(URL)
 
-    # Parâmetros da requisição POST de pesquisa
+    # POST da pesquisa
     data = {
         "fPP:numProcesso-inputNumeroProcessoDecoration:numProcesso-inputNumeroProcesso": NUM_PROCESSO,
-        "fPP:j_id212": "Pesquisar"  # botão de pesquisar
+        "fPP:j_id212": "Pesquisar"
     }
 
-    # Faz o POST com o número do processo
     response = session.post(URL, data=data)
 
     return response.text
 
 
 def salvar_movimentacao(mov):
-    """
-    Salva a movimentação em ultima.txt
-    """
     with open(CAMINHO_ARQUIVO, "w", encoding="utf-8") as f:
         f.write(mov)
 
