@@ -1,1 +1,1 @@
-Erro ao obter movimentação.
+Tabela não retornada pelo servidor.
