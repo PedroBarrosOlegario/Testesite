@@ -1,16 +1,14 @@
 
-name: Gemini Resident Evil Prompt Generator
+name: Resident Evil Prompt and Image Generator
 
 on:
   schedule:
-    - cron: '0 3,8,13,18,23 * * *'
+    - cron: '0 15 * * *'   # 1x por dia (seguro para começar)
   workflow_dispatch:
 
 jobs:
   generate:
     runs-on: ubuntu-latest
-
-    # 🔑 IMPORTANTE: declara o environment
     environment: production
 
     steps:
@@ -26,16 +24,20 @@ jobs:
         run: |
           pip install requests
 
-      - name: Run prompt generator
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      - name: Generate prompt
         run: |
           python Resident-evil-prompts/prompt_generator.py
 
-      - name: Commit generated prompts
+      - name: Generate image from prompt
+        env:
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+        run: |
+          python Resident-evil-prompts/image_generator.py
+
+      - name: Commit prompt and image
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
           git add Resident-evil-prompts
-          git commit -m "New Resident Evil cinematic prompt"
+          git commit -m "New Resident Evil prompt and image"
           git push
