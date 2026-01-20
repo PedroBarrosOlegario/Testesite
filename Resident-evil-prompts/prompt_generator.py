@@ -5,8 +5,15 @@ import requests
 import json
 import datetime
 
+# ================= CONFIGURAÇÃO =================
+
 API_KEY = os.getenv("GEMINI_API_KEY")
 ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+
+if not API_KEY:
+    raise RuntimeError("GEMINI_API_KEY não encontrada. Verifique os Environment Secrets do GitHub.")
+
+# ================= BASE CRIATIVA =================
 
 BASE_ELEMENTS = {
     "locations": [
@@ -42,9 +49,11 @@ BASE_ELEMENTS = {
     ]
 }
 
-def build_base_prompt():
+# ================= FUNÇÕES =================
+
+def build_base_prompt() -> str:
     return f"""
-Create an ultra‑realistic cinematic survival horror image inspired by the Resident Evil video game series.
+Create an ultra-realistic cinematic survival horror image inspired by the Resident Evil video game series.
 
 Scene:
 {random.choice(BASE_ELEMENTS["locations"])}.
@@ -63,9 +72,10 @@ Camera:
 Style rules:
 Photorealistic, dark palette, realistic textures, cinematic lighting.
 No text, no logos, no watermark.
-"""
+""".strip()
 
-def refine_with_gemini(prompt):
+
+def refine_with_gemini(prompt: str) -> str:
     payload = {
         "contents": [
             {
@@ -75,8 +85,7 @@ def refine_with_gemini(prompt):
                             "You are a professional cinematic prompt engineer specializing in "
                             "survival horror environments inspired by classic Resident Evil games.\n\n"
                             "Enhance and polish the following image prompt to maximize realism, mood, "
-                            "uniqueness, and cinematic quality. Ensure every result feels different "
-                            "from previous ones.\n\n"
+                            "uniqueness and cinematic quality. Ensure each result feels visually distinct.\n\n"
                             f"{prompt}"
                         )
                     }
@@ -87,27 +96,43 @@ def refine_with_gemini(prompt):
 
     headers = {
         "Content-Type": "application/json",
-        "X-goog-api-key": AIzaSyDimzrp2le5cgm9wcHhscaPlrunXR7H7RA
+        "X-goog-api-key": API_KEY
     }
 
     response = requests.post(
         ENDPOINT,
         headers=headers,
-        data=json.dumps(payload)
+        json=payload,
+        timeout=30
     )
 
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"Gemini API error {response.status_code}: {response.text}"
+        )
+
     result = response.json()
-    return result["candidates"][0]["content"]["parts"][0]["text"]
+
+    try:
+        return result["candidates"][0]["content"]["parts"][0]["text"]
+    except (KeyError, IndexError):
+        raise RuntimeError(f"Resposta inesperada da Gemini API: {result}")
+
+# ================= EXECUÇÃO =================
 
 if __name__ == "__main__":
     base_prompt = build_base_prompt()
     final_prompt = refine_with_gemini(base_prompt)
 
-    os.makedirs("prompts", exist_ok=True)
-    filename = f"prompts/prompt_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+    os.makedirs("Resident-evil-prompts/prompts", exist_ok=True)
+
+    filename = (
+        "Resident-evil-prompts/prompts/"
+        f"prompt_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+    )
 
     with open(filename, "w", encoding="utf-8") as f:
         f.write(final_prompt)
 
-    print("FINAL PROMPT:\n")
+    print("\n=== FINAL PROMPT GERADO ===\n")
     print(final_prompt)
