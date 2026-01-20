@@ -1,25 +1,16 @@
 import os
-import requests
 import datetime
 from pathlib import Path
+import replicate
 
 # ==================================================
 # CONFIGURAÇÃO
 # ==================================================
 
-REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN")
-
-if not REPLICATE_API_TOKEN:
+if not os.getenv("REPLICATE_API_TOKEN"):
     raise RuntimeError("REPLICATE_API_TOKEN não encontrado.")
 
-HEADERS = {
-    "Authorization": f"Token {REPLICATE_API_TOKEN}",
-    "Content-Type": "application/json",
-}
-
-REPLICATE_ENDPOINT = "https://api.replicate.com/v1/predictions"
-
-MODEL_NAME = "google/nano-banana-pro"
+# A lib replicate usa automaticamente o env REPLICATE_API_TOKEN
 
 # ==================================================
 # FUNÇÕES
@@ -36,45 +27,18 @@ def get_latest_prompt() -> str:
 
 
 def generate_image(prompt: str) -> str:
-    payload = {
-        "model": MODEL_NAME,
-        "input": {
+    output = replicate.run(
+        "google/nano-banana-pro",
+        input={
             "prompt": prompt,
             "resolution": "2K",
             "aspect_ratio": "4:3",
             "output_format": "png",
             "safety_filter_level": "block_only_high"
         }
-    }
-
-    response = requests.post(
-        REPLICATE_ENDPOINT,
-        headers=HEADERS,
-        json=payload,
-        timeout=30
     )
 
-    if response.status_code != 201:
-        raise RuntimeError(f"Erro Replicate: {response.text}")
-
-    prediction = response.json()
-    get_url = prediction["urls"]["get"]
-
-    # Polling simples
-    while True:
-        result = requests.get(get_url, headers=HEADERS).json()
-        status = result.get("status")
-
-        if status == "succeeded":
-            return result["output"]  # ✅ string (URL direta)
-
-        if status == "failed":
-            raise RuntimeError("Geração da imagem falhou."
-
-        )
-
-def download_image(image_url: str) -> str:
-    image_data = requests.get(image_url).content
+    # Nano Banana retorna um File-like object
     os.makedirs("Resident-evil-prompts/images", exist_ok=True)
 
     filename = (
@@ -83,7 +47,7 @@ def download_image(image_url: str) -> str:
     )
 
     with open(filename, "wb") as f:
-        f.write(image_data)
+        f.write(output.read())
 
     return filename
 
@@ -93,7 +57,6 @@ def download_image(image_url: str) -> str:
 
 if __name__ == "__main__":
     prompt = get_latest_prompt()
-    image_url = generate_image(prompt)
-    saved_path = download_image(image_url)
+    image_path = generate_image(prompt)
 
-    print(f"✅ Imagem gerada com Nano Banana Pro: {saved_path}")
+    print(f"✅ Imagem gerada com Nano Banana Pro: {image_path}")
