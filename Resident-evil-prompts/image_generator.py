@@ -2,7 +2,6 @@ import os
 import requests
 import datetime
 from pathlib import Path
-import time
 
 # ==================================================
 # CONFIGURAÇÃO
@@ -20,8 +19,7 @@ HEADERS = {
 
 REPLICATE_ENDPOINT = "https://api.replicate.com/v1/predictions"
 
-# Modelo Stable Diffusion XL
-MODEL_VERSION = "stability-ai/stable-diffusion-xl"
+MODEL_NAME = "google/nano-banana-pro"
 
 # ==================================================
 # FUNÇÕES
@@ -39,18 +37,14 @@ def get_latest_prompt() -> str:
 
 def generate_image(prompt: str) -> str:
     payload = {
-        "version": MODEL_VERSION,
+        "model": MODEL_NAME,
         "input": {
             "prompt": prompt,
-            "width": 1024,
-            "height": 1024,
-            "guidance_scale": 7.5,
-            "num_inference_steps": 35,
-            "negative_prompt": (
-                "cartoon, anime, illustration, low quality, blurry, "
-                "bad anatomy, visible face, watermark, text"
-            ),
-        },
+            "resolution": "2K",
+            "aspect_ratio": "4:3",
+            "output_format": "png",
+            "safety_filter_level": "block_only_high"
+        }
     }
 
     response = requests.post(
@@ -64,20 +58,20 @@ def generate_image(prompt: str) -> str:
         raise RuntimeError(f"Erro Replicate: {response.text}")
 
     prediction = response.json()
-    status_url = prediction["urls"]["get"]
+    get_url = prediction["urls"]["get"]
 
+    # Polling simples
     while True:
-        result = requests.get(status_url, headers=HEADERS).json()
+        result = requests.get(get_url, headers=HEADERS).json()
         status = result.get("status")
 
         if status == "succeeded":
-            return result["output"][0]
+            return result["output"]  # ✅ string (URL direta)
 
         if status == "failed":
-            raise RuntimeError("Geração da imagem falhou.")
+            raise RuntimeError("Geração da imagem falhou."
 
-        time.sleep(3)
-
+        )
 
 def download_image(image_url: str) -> str:
     image_data = requests.get(image_url).content
@@ -93,7 +87,6 @@ def download_image(image_url: str) -> str:
 
     return filename
 
-
 # ==================================================
 # EXECUÇÃO
 # ==================================================
@@ -103,4 +96,4 @@ if __name__ == "__main__":
     image_url = generate_image(prompt)
     saved_path = download_image(image_url)
 
-    print(f"✅ Imagem salva em {saved_path}")
+    print(f"✅ Imagem gerada com Nano Banana Pro: {saved_path}")
