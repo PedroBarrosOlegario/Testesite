@@ -3,13 +3,15 @@ name: Gemini Resident Evil Prompt Generator
 
 on:
   schedule:
-    # 5 vezes por dia
     - cron: '0 3,8,13,18,23 * * *'
   workflow_dispatch:
 
 jobs:
   generate:
     runs-on: ubuntu-latest
+
+    # 🔑 IMPORTANTE: declara o environment
+    environment: production
 
     steps:
       - name: Checkout repository
@@ -37,4 +39,3 @@ jobs:
           git add Resident-evil-prompts
           git commit -m "New Resident Evil cinematic prompt"
           git push
-``
