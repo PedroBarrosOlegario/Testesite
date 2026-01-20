@@ -1,128 +1,125 @@
 
 import os
 import random
-import requests
-import json
 import datetime
 
-# ================= CONFIGURAÇÃO =================
+# ==================================================
+# IDENTIDADE FIXA (estilo visual constante)
+# ==================================================
 
-API_KEY = os.getenv("GEMINI_API_KEY")
-ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+FIXED_STYLE = """
+Ultra-realistic cinematic survival horror.
+Photorealistic textures, realistic lighting, dark color palette.
+Mature tone, grounded realism, mysterious and tense atmosphere.
+Inspired by classic and modern Resident Evil environments.
+"""
 
-if not API_KEY:
-    raise RuntimeError("GEMINI_API_KEY não encontrada. Verifique os Environment Secrets do GitHub.")
+# ==================================================
+# ELEMENTOS VARIÁVEIS (variam a cada geração)
+# ==================================================
 
-# ================= BASE CRIATIVA =================
+LOCATIONS = [
+    "a decaying gothic mansion hallway with cracked marble floors and rotting wooden walls",
+    "a fog-covered rural village street with abandoned houses and ritualistic symbols",
+    "an underground laboratory corridor with shattered glass and biohazard warning signs",
+    "a ruined police station interior with overturned desks and flickering lights",
+    "an abandoned hospital ward with rusted beds, torn curtains, and blood-stained tiles",
+    "a collapsing castle interior illuminated by cold moonlight through broken windows",
+    "a narrow sewer passage filled with steam, pipes, and stagnant water",
+    "a destroyed urban street after a biological outbreak, debris scattered everywhere"
+]
 
-BASE_ELEMENTS = {
-    "locations": [
-        "a decaying gothic mansion corridor overtaken by mold",
-        "a fog-covered rural village with abandoned wooden houses",
-        "an underground laboratory filled with broken glass and biohazard signs",
-        "a dark police station hallway with flickering emergency lights",
-        "a ruined castle interior illuminated by moonlight",
-        "an abandoned hospital ward with torn curtains and rusted beds",
-        "a flooded city street at night with overturned vehicles",
-        "a narrow underground passage surrounded by concrete and pipes"
-    ],
-    "atmospheres": [
-        "a suffocating sense of dread and isolation",
-        "absolute silence with an unseen threat nearby",
-        "overwhelming tension as if danger lurks in the shadows",
-        "cold, decaying survival horror ambience",
-        "an oppressive, claustrophobic horror atmosphere"
-    ],
-    "lighting": [
-        "a single flashlight beam cutting through darkness",
-        "flickering fluorescent lights casting long shadows",
-        "cold moonlight entering through broken windows",
-        "red emergency lights reflecting on wet surfaces",
-        "soft volumetric fog illuminated by distant lamps"
-    ],
-    "camera": [
-        "wide cinematic framing",
-        "over-the-shoulder survival horror perspective",
-        "low-angle dramatic shot",
-        "static composition emphasizing environment scale",
-        "slow cinematic zoom"
-    ]
-}
+ATMOSPHERES = [
+    "an oppressive sense of dread and constant danger",
+    "absolute silence, broken only by distant echoes",
+    "a heavy feeling of isolation as if something is stalking nearby",
+    "thick tension that suggests an invisible threat",
+    "a cold, lifeless ambiance with lingering biological contamination"
+]
 
-# ================= FUNÇÕES =================
+LIGHTING = [
+    "a single handheld flashlight casting sharp shadows",
+    "flickering fluorescent lights barely illuminating the area",
+    "cold moonlight creating long, dramatic shadows",
+    "emergency red lighting reflecting on wet surfaces",
+    "dim ambient light mixed with volumetric fog"
+]
 
-def build_base_prompt() -> str:
-    return f"""
-Create an ultra-realistic cinematic survival horror image inspired by the Resident Evil video game series.
+CAMERA_FRAMING = [
+    "wide cinematic shot emphasizing environment scale",
+    "over-the-shoulder survival horror perspective",
+    "low-angle shot increasing tension and unease",
+    "static composition focused on environmental storytelling",
+    "tight cinematic framing surrounded by darkness"
+]
 
-Scene:
-{random.choice(BASE_ELEMENTS["locations"])}.
-{random.choice(BASE_ELEMENTS["atmospheres"])}.
+# ==================================================
+# ARMAS – HANDGUNS / PISTOLS (ESTILO RESIDENT EVIL)
+# ==================================================
+
+HANDGUNS = [
+    "a worn semi-automatic handgun held firmly, showing scratches and heavy use",
+    "a tactical pistol with a mounted flashlight, reflecting dim light",
+    "a classic survival handgun with a matte metal finish and textured grip",
+    "a compact combat pistol partially illuminated in the darkness",
+    "a service pistol resting cautiously at the survivor’s side"
+]
+
+# ==================================================
+# PERSONAGEM (SEM ROSTO)
+# ==================================================
+
+CHARACTERS = [
+    "a lone survivor standing in the shadows, face completely hidden",
+    "a mysterious figure seen only from behind, identity concealed",
+    "a human silhouette partially obscured by darkness and fog",
+    "a survivor wearing practical clothing, facial features invisible",
+    "a tense figure gripping a weapon, face lost in shadow"
+]
+
+# ==================================================
+# FUNÇÃO PRINCIPAL
+# ==================================================
+
+def generate_prompt() -> str:
+    prompt = f"""
+{FIXED_STYLE}
+
+Scene description:
+{random.choice(LOCATIONS)}.
+The environment feels abandoned and dangerous.
+
+Atmosphere:
+{random.choice(ATMOSPHERES)}.
 
 Lighting:
-{random.choice(BASE_ELEMENTS["lighting"])}.
+{random.choice(LIGHTING)}.
 
 Character presence:
-A lone human silhouette may appear, but the face must be completely hidden or obscured.
-No identifiable facial features.
+{random.choice(CHARACTERS)}.
+The character is holding {random.choice(HANDGUNS)}.
+No face visible under any circumstances.
 
 Camera:
-{random.choice(BASE_ELEMENTS["camera"])}.
+{random.choice(CAMERA_FRAMING)}.
 
-Style rules:
-Photorealistic, dark palette, realistic textures, cinematic lighting.
-No text, no logos, no watermark.
+Visual rules:
+No text, no logos, no symbols, no watermark.
+No visible faces.
+No exaggerated fantasy elements.
+
+Focus:
+Environmental storytelling, tension, realism, mystery.
 """.strip()
 
+    return prompt
 
-def refine_with_gemini(prompt: str) -> str:
-    payload = {
-        "contents": [
-            {
-                "parts": [
-                    {
-                        "text": (
-                            "You are a professional cinematic prompt engineer specializing in "
-                            "survival horror environments inspired by classic Resident Evil games.\n\n"
-                            "Enhance and polish the following image prompt to maximize realism, mood, "
-                            "uniqueness and cinematic quality. Ensure each result feels visually distinct.\n\n"
-                            f"{prompt}"
-                        )
-                    }
-                ]
-            }
-        ]
-    }
-
-    headers = {
-        "Content-Type": "application/json",
-        "X-goog-api-key": API_KEY
-    }
-
-    response = requests.post(
-        ENDPOINT,
-        headers=headers,
-        json=payload,
-        timeout=30
-    )
-
-    if response.status_code != 200:
-        raise RuntimeError(
-            f"Gemini API error {response.status_code}: {response.text}"
-        )
-
-    result = response.json()
-
-    try:
-        return result["candidates"][0]["content"]["parts"][0]["text"]
-    except (KeyError, IndexError):
-        raise RuntimeError(f"Resposta inesperada da Gemini API: {result}")
-
-# ================= EXECUÇÃO =================
+# ==================================================
+# EXECUÇÃO
+# ==================================================
 
 if __name__ == "__main__":
-    base_prompt = build_base_prompt()
-    final_prompt = refine_with_gemini(base_prompt)
+    final_prompt = generate_prompt()
 
     os.makedirs("Resident-evil-prompts/prompts", exist_ok=True)
 
@@ -134,5 +131,5 @@ if __name__ == "__main__":
     with open(filename, "w", encoding="utf-8") as f:
         f.write(final_prompt)
 
-    print("\n=== FINAL PROMPT GERADO ===\n")
+    print("\n=== PROMPT GERADO ===\n")
     print(final_prompt)
