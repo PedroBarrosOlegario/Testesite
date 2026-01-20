@@ -22,7 +22,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests
+          pip install requests replicate
 
       - name: Generate prompt
         run: |
@@ -41,3 +41,4 @@ jobs:
           git add Resident-evil-prompts
           git commit -m "New Resident Evil prompt and image"
           git push
+
