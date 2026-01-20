@@ -1,9 +1,12 @@
-
 import os
 import requests
 import datetime
 from pathlib import Path
 import time
+
+# ==================================================
+# CONFIGURAÇÃO
+# ==================================================
 
 REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN")
 
@@ -17,17 +20,22 @@ HEADERS = {
 
 REPLICATE_ENDPOINT = "https://api.replicate.com/v1/predictions"
 
-# Modelo SDXL cinematográfico
+# Modelo Stable Diffusion XL
 MODEL_VERSION = "stability-ai/stable-diffusion-xl"
+
+# ==================================================
+# FUNÇÕES
+# ==================================================
 
 def get_latest_prompt() -> str:
     prompt_dir = Path("Resident-evil-prompts/prompts")
-    prompts = sorted(prompt_dir.glob("prompt_*.txt"), reverse=True)
+    prompt_files = sorted(prompt_dir.glob("prompt_*.txt"), reverse=True)
 
-    if not prompts:
+    if not prompt_files:
         raise RuntimeError("Nenhum prompt encontrado.")
 
-    return prompts[0].read_text(encoding="utf-8")
+    return prompt_files[0].read_text(encoding="utf-8")
+
 
 def generate_image(prompt: str) -> str:
     payload = {
@@ -39,8 +47,8 @@ def generate_image(prompt: str) -> str:
             "guidance_scale": 7.5,
             "num_inference_steps": 35,
             "negative_prompt": (
-                "cartoon, anime, illustration, oversaturated, low quality, "
-                "bad anatomy, blurry, watermark, text, visible face"
+                "cartoon, anime, illustration, low quality, blurry, "
+                "bad anatomy, visible face, watermark, text"
             ),
         },
     }
@@ -56,10 +64,10 @@ def generate_image(prompt: str) -> str:
         raise RuntimeError(f"Erro Replicate: {response.text}")
 
     prediction = response.json()
-    get_url = prediction["urls"]["get"]
+    status_url = prediction["urls"]["get"]
 
     while True:
-        result = requests.get(get_url, headers=HEADERS).json()
+        result = requests.get(status_url, headers=HEADERS).json()
         status = result.get("status")
 
         if status == "succeeded":
@@ -69,6 +77,7 @@ def generate_image(prompt: str) -> str:
             raise RuntimeError("Geração da imagem falhou.")
 
         time.sleep(3)
+
 
 def download_image(image_url: str) -> str:
     image_data = requests.get(image_url).content
@@ -84,10 +93,14 @@ def download_image(image_url: str) -> str:
 
     return filename
 
+
+# ==================================================
+# EXECUÇÃO
+# ==================================================
+
 if __name__ == "__main__":
     prompt = get_latest_prompt()
     image_url = generate_image(prompt)
     saved_path = download_image(image_url)
 
     print(f"✅ Imagem salva em {saved_path}")
-``
