@@ -1,9 +1,8 @@
-
-name: Resident Evil Prompt + Image (Gemini)
+name: Resident Evil Prompt + Image (Cloudflare)
 
 on:
   schedule:
-    - cron: '0 15 * * *'   # 1x por dia para começar
+    - cron: '0 15 * * *'   # 1x por dia
   workflow_dispatch:
 
 jobs:
@@ -22,24 +21,23 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -U google-genai pillow
+          pip install requests
 
       - name: Generate prompt
         run: |
           python Resident-evil-prompts/prompt_generator.py
 
-      - name: Generate image with Gemini (Imagen 3)
+      - name: Generate image with Cloudflare SDXL
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CLOUD_FLARE_API: ${{ secrets.CLOUD_FLARE_API }}
+          CLOUDFLARE_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT }}
         run: |
-          python Resident-evil-prompts/image_generator_gemini.py
+          python Resident-evil-prompts/image_generator_cloudflare.py
 
       - name: Commit prompt and image
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
           git add Resident-evil-prompts
-          git commit -m "New Resident Evil prompt and image (Gemini)"
+          git commit -m "New Resident Evil prompt and image (Cloudflare SDXL)"
           git push
-
-
