@@ -1,0 +1,36 @@
+
+name: Post Image to X
+
+on:
+  schedule:
+    - cron: '32 4 * * *'
+    - cron: '46 10 * * *'
+    - cron: '0 16 * * *'
+    - cron: '0 21 * * *'
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install tweepy
+
+      - name: Post image to X
+        env:
+          X_CONSUMER_KEY: ${{ secrets.X_CONSUMER_KEY }}
+          X_CONSUMER_KEY_SECRET: ${{ secrets.X_CONSUMER_KEY_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+        run: |
+          python Resident-evil-prompts/post_to_x.py
