@@ -22,7 +22,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -U google-generativeai pillow
+          pip install -U google-genai pillow
 
       - name: Generate prompt
         run: |
@@ -41,4 +41,5 @@ jobs:
           git add Resident-evil-prompts
           git commit -m "New Resident Evil prompt and image (Gemini)"
           git push
+
 
