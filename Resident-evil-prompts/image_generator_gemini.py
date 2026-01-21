@@ -1,22 +1,21 @@
 import os
 import datetime
 from pathlib import Path
+from google import genai
+from google.genai import types
 from PIL import Image
-import google.generativeai as genai
 
 # ==================================================
-# CONFIGURAÇÃO DA API (NÃO HARD-CODA CHAVE)
+# CONFIGURAÇÃO
 # ==================================================
 
 API_KEY = os.getenv("GEMINI_API_KEY")
-
 if not API_KEY:
-    raise RuntimeError("GEMINI_API_KEY não encontrada nos Environment Secrets.")
+    raise RuntimeError("GEMINI_API_KEY não encontrada.")
 
-genai.configure(api_key=API_KEY)
+client = genai.Client(api_key=API_KEY)
 
-# Modelo de imagem do Google
-image_model = genai.ImageGenerationModel("imagen-3.0-generate-001")
+MODEL_NAME = "gemini-2.5-flash-image"  # Nano Banana
 
 # ==================================================
 # FUNÇÕES
@@ -24,39 +23,36 @@ image_model = genai.ImageGenerationModel("imagen-3.0-generate-001")
 
 def get_latest_prompt() -> str:
     prompt_dir = Path("Resident-evil-prompts/prompts")
-    prompt_files = sorted(prompt_dir.glob("prompt_*.txt"), reverse=True)
+    files = sorted(prompt_dir.glob("prompt_*.txt"), reverse=True)
 
-    if not prompt_files:
-        raise RuntimeError("Nenhum prompt encontrado para gerar imagem.")
+    if not files:
+        raise RuntimeError("Nenhum prompt encontrado.")
 
-    return prompt_files[0].read_text(encoding="utf-8")
+    return files[0].read_text(encoding="utf-8")
 
 
 def generate_image(prompt: str) -> str:
-    print("🎨 Gerando imagem com Imagen 3...")
+    print("🍌 Gerando imagem com Nano Banana...")
 
-    response = image_model.generate_images(
-        prompt=prompt,
-        number_of_images=1,
-        aspect_ratio="4:3",   # ótimo para cenas e storytelling
-        safety_filter="block_only_high"
+    response = client.models.generate_content(
+        model=MODEL_NAME,
+        contents=[prompt],
     )
 
-    if not response.images:
-        raise RuntimeError("Nenhuma imagem retornada pela API (bloqueada pelo safety filter).")
+    for part in response.parts:
+        if part.inline_data is not None:
+            image = part.as_image()
 
-    image = response.images[0]
+            os.makedirs("Resident-evil-prompts/images", exist_ok=True)
+            filename = (
+                "Resident-evil-prompts/images/"
+                f"image_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+            )
 
-    os.makedirs("Resident-evil-prompts/images", exist_ok=True)
+            image.save(filename)
+            return filename
 
-    filename = (
-        "Resident-evil-prompts/images/"
-        f"image_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-    )
-
-    image.save(filename)
-
-    return filename
+    raise RuntimeError("Nenhuma imagem retornada pelo modelo.")
 
 
 # ==================================================
@@ -66,5 +62,4 @@ def generate_image(prompt: str) -> str:
 if __name__ == "__main__":
     prompt = get_latest_prompt()
     image_path = generate_image(prompt)
-
-    print(f"✅ Imagem gerada com sucesso: {image_path}")
+    print(f"✅ Imagem gerada com Nano Banana: {image_path}")
